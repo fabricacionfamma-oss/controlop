@@ -70,39 +70,40 @@ tareas_solicitadas = st.selectbox("¿Realizo las actividades según lo solicitad
 st.markdown("---")
 st.subheader("⏱️ Tiempos y Horarios")
 
-# Función modificada para admitir Horas y Minutos por separado
+# === FUNCIÓN OPTIMIZADA PARA MÓVILES ===
 def fila_tiempo_obs(label_tiempo, es_hora=False, prefijo=""):
+    # Título general de la sección
+    st.markdown(f"**{label_tiempo} ***") 
+    
     if es_hora:
-        # Colocamos el título arriba de la fila para que se entienda
-        st.markdown(f"**{label_tiempo} ***")
-        col_h, col_m, col_obs = st.columns([1, 1, 2])
-        
+        # Hora y Minutos lado a lado (2 columnas amplias para los dedos)
+        col_h, col_m = st.columns(2)
         with col_h:
-            # Cuadro de horas: 0 a 23
-            hora = st.number_input("Hora", min_value=0, max_value=23, step=1, key=f"{prefijo}_h")
+            hora = st.number_input("Hora (0-23)", min_value=0, max_value=23, step=1, key=f"{prefijo}_h")
         with col_m:
-            # Cuadro de minutos: 0 a 59
-            minuto = st.number_input("Minutos", min_value=0, max_value=59, step=1, key=f"{prefijo}_m")
-        with col_obs:
-            obs = st.text_input("Observaciones", placeholder="Escribe aquí si hay observaciones...", key=f"{prefijo}_obs")
+            minuto = st.number_input("Minutos (0-59)", min_value=0, max_value=59, step=1, key=f"{prefijo}_m")
             
-        # Formateamos a texto "HH:MM", añadiendo ceros a la izquierda (ej: 09:05)
+        # Observaciones abajo, ocupando todo el ancho del celular
+        obs = st.text_input("Observaciones", placeholder="Escribe aquí si hay observaciones...", key=f"{prefijo}_obs")
+        
         tiempo_final = f"{hora:02d}:{minuto:02d}"
+        st.markdown("<br>", unsafe_allow_html=True) # Espacio extra para separar del siguiente bloque
         return tiempo_final, obs
         
     else:
-        col1, col2 = st.columns([1, 2])
-        with col1:
-            tiempo_final = st.number_input(f"{label_tiempo} (Minutos) *", min_value=0, step=5, key=f"{prefijo}_t")
-        with col2:
-            obs = st.text_input(f"Observaciones ({label_tiempo.lower()})", placeholder="Escribe aquí si hay observaciones...", key=f"{prefijo}_obs")
+        # Para tiempos regulares, mantenemos cantidad a la izquierda y observaciones a la derecha
+        col_t, col_obs = st.columns(2)
+        with col_t:
+            tiempo_final = st.number_input("Cantidad (Minutos) *", min_value=0, step=5, key=f"{prefijo}_t")
+        with col_obs:
+            obs = st.text_input("Observaciones", placeholder="Opcional...", key=f"{prefijo}_obs")
+            
+        st.markdown("<br>", unsafe_allow_html=True)
         return tiempo_final, obs
 
-# 9 y 10. Horarios de inicio y fin (usando es_hora=True y un prefijo único)
+# 9 y 10. Horarios de inicio y fin
 hr_inicio, obs_inicio = fila_tiempo_obs("Horario inicio de actividades", es_hora=True, prefijo="inicio")
 hr_fin, obs_fin = fila_tiempo_obs("Horario fin de actividades", es_hora=True, prefijo="fin")
-
-st.write("") # Espacio en blanco para separar
 
 # 11, 12 y 13. Tiempos en minutos
 t_bano, obs_bano = fila_tiempo_obs("Tiempos de baño", es_hora=False, prefijo="bano")
@@ -114,7 +115,7 @@ st.markdown("---")
 # 14. Observación final
 observacion_general = st.text_area("¿Alguna observación general? *")
 
-# Botón de guardado con validaciones
+# Botón de guardado
 if st.button("Guardar Registro", type="primary", use_container_width=True):
     
     errores = []

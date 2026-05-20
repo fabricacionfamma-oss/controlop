@@ -1,7 +1,6 @@
 import streamlit as st
 import datetime
 import requests
-import streamlit.components.v1 as components
 
 # 1. Configuración de la página
 st.set_page_config(page_title="Formulario de Planta", layout="centered")
@@ -9,48 +8,12 @@ st.set_page_config(page_title="Formulario de Planta", layout="centered")
 # =========================================================
 # === INICIALIZACIÓN DEL ESTADO DE LA SESIÓN (MEMORIA) ===
 # =========================================================
-# Si es la primera vez que carga la página, definimos que el formulario NO está enviado
 if "formulario_enviado" not in st.session_state:
     st.session_state.formulario_enviado = False
 
-# =========================================================
-# === FUNCIÓN DEL EFECTO DE CONFETI ===
-# =========================================================
-def lanzar_confeti():
-    components.html(
-        """
-        <style>
-            body { margin: 0; padding: 0; overflow: hidden; }
-        </style>
-        <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/dist/confetti.browser.min.js"></script>
-        <script>
-            var end = Date.now() + (2.5 * 1000); 
-            var colors = ['#ff0000', '#00ff00', '#0000ff', '#ffff00', '#ff00ff', '#00ffff'];
-
-            (function frame() {
-                confetti({
-                    particleCount: 5,
-                    angle: 60,
-                    spread: 55,
-                    origin: { x: 0, y: 0.6 },
-                    colors: colors
-                });
-                confetti({
-                    particleCount: 5,
-                    angle: 120,
-                    spread: 55,
-                    origin: { x: 1, y: 0.6 },
-                    colors: colors
-                });
-
-                if (Date.now() < end) {
-                    requestAnimationFrame(frame);
-                }
-            }());
-        </script>
-        """,
-        height=250,
-    )
+# Variable para controlar que la celebración solo pase una vez
+if "mostrar_celebracion" not in st.session_state:
+    st.session_state.mostrar_celebracion = False
 
 # =========================================================
 # === CONFIGURACIÓN DE URL ===
@@ -158,8 +121,6 @@ observacion_general = st.text_area("¿Alguna observación general? *")
 # === GESTIÓN DE BOTONES CON BLOQUEO DE SEGURIDAD ===
 # =========================================================
 
-# Usamos el parámetro disabled=st.session_state.formulario_enviado
-# Si la variable es True, el botón se bloquea automáticamente.
 boton_guardar = st.button(
     "Guardar Registro", 
     type="primary", 
@@ -216,10 +177,9 @@ if boton_guardar:
                     resultado_json = respuesta.json()
                     if resultado_json.get("status") == "exito":
                         
-                        # === PASO CLAVE: Cambiar el estado a ENVIADO ===
+                        # Cambiamos el estado a ENVIADO y activamos la nieve
                         st.session_state.formulario_enviado = True
-                        
-                        # Forzamos una recarga ligera para que el botón se dibuje deshabilitado de inmediato
+                        st.session_state.mostrar_celebracion = True
                         st.rerun()
                         
                     else:
@@ -234,12 +194,13 @@ if boton_guardar:
 # =========================================================
 if st.session_state.formulario_enviado:
     st.success("### ✅ ¡La información se registró correctamente!")
-    st.info("El botón de guardado ha sido deshabilitado para evitar duplicados.")
     
-    # Lanzamos el confeti
-    lanzar_confeti()
+    # Lanzamos el efecto nativo de nieve/estrellas una sola vez
+    if st.session_state.mostrar_celebracion:
+        st.snow()
+        st.session_state.mostrar_celebracion = False # Apagamos el trigger para que no se repita
     
-    # Creamos un nuevo botón para "Cargar otro registro" si el operario lo necesita
+    # Botón para cargar otro registro
     if st.button("🔄 Cargar un nuevo formulario", use_container_width=True):
         st.session_state.formulario_enviado = False
         st.rerun()

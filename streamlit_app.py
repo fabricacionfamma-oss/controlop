@@ -1,38 +1,45 @@
 import streamlit as st
 import datetime
 import requests
-import streamlit.components.v1 as components # Para el efecto de confeti personalizado
+import streamlit.components.v1 as components
 
 # 1. Configuración de la página
 st.set_page_config(page_title="Formulario de Planta", layout="centered")
 
 # =========================================================
-# === FUNCIÓN DEL EFECTO DE CONFETI PERSONALIZADO ===
+# === INICIALIZACIÓN DEL ESTADO DE LA SESIÓN (MEMORIA) ===
+# =========================================================
+# Si es la primera vez que carga la página, definimos que el formulario NO está enviado
+if "formulario_enviado" not in st.session_state:
+    st.session_state.formulario_enviado = False
+
+# =========================================================
+# === FUNCIÓN DEL EFECTO DE CONFETI ===
 # =========================================================
 def lanzar_confeti():
     components.html(
         """
-        <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.5.1/dist/confetti.browser.min.js"></script>
+        <style>
+            body { margin: 0; padding: 0; overflow: hidden; }
+        </style>
+        <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/dist/confetti.browser.min.js"></script>
         <script>
-            // Configuración del confeti: duración de 2.5 segundos, explosión de colores
             var end = Date.now() + (2.5 * 1000); 
             var colors = ['#ff0000', '#00ff00', '#0000ff', '#ffff00', '#ff00ff', '#00ffff'];
 
             (function frame() {
-                // Explosión desde la izquierda
                 confetti({
-                    particleCount: 4,
+                    particleCount: 5,
                     angle: 60,
-                    spread: 60,
-                    origin: { x: 0 },
+                    spread: 55,
+                    origin: { x: 0, y: 0.6 },
                     colors: colors
                 });
-                // Explosión desde la derecha
                 confetti({
-                    particleCount: 4,
+                    particleCount: 5,
                     angle: 120,
-                    spread: 60,
-                    origin: { x: 1 },
+                    spread: 55,
+                    origin: { x: 1, y: 0.6 },
                     colors: colors
                 });
 
@@ -42,10 +49,8 @@ def lanzar_confeti():
             }());
         </script>
         """,
-        height=0, # Ocultar el contenedor del componente
+        height=250,
     )
-
-# === YA NO SE LLAMA A LANZAR_CONFETI() AQUÍ AL INICIO ===
 
 # =========================================================
 # === CONFIGURACIÓN DE URL ===
@@ -150,10 +155,19 @@ st.markdown("---")
 observacion_general = st.text_area("¿Alguna observación general? *")
 
 # =========================================================
-# === BOTÓN DE ENVÍO ===
+# === GESTIÓN DE BOTONES CON BLOQUEO DE SEGURIDAD ===
 # =========================================================
-if st.button("Guardar Registro", type="primary", use_container_width=True):
-    
+
+# Usamos el parámetro disabled=st.session_state.formulario_enviado
+# Si la variable es True, el botón se bloquea automáticamente.
+boton_guardar = st.button(
+    "Guardar Registro", 
+    type="primary", 
+    use_container_width=True, 
+    disabled=st.session_state.formulario_enviado
+)
+
+if boton_guardar:
     errores = []
     if len(legajo) != 6 or not legajo.isdigit():
         errores.append("El LEGAJO debe contener exactamente 6 números.")
@@ -171,7 +185,6 @@ if st.button("Guardar Registro", type="primary", use_container_width=True):
         for error in errores:
             st.error(f"⚠️ {error}")
     else:
-        # Preparamos paquete de datos Clásico
         payload = {
             "Fecha": str(fecha),
             "Planta": planta,
@@ -197,20 +210,17 @@ if st.button("Guardar Registro", type="primary", use_container_width=True):
         
         with st.spinner("Procesando en Google Sheets..."):
             try:
-                # Envío Clásico POST
                 respuesta = requests.post(URL_WEBHOOK_GOOGLE, json=payload, timeout=15)
                 
                 if respuesta.status_code == 200:
                     resultado_json = respuesta.json()
                     if resultado_json.get("status") == "exito":
-                        st.success(f"### ✅ ¡Registro guardado exitosamente!")
-                        st.info(f"Comprobante Fila: {resultado_json.get('fila')}")
                         
-                        # =========================================================
-                        # === AQUÍ SE LANZA EL CONFETI SOLO EN ÉXITO ===
-                        # =========================================================
-                        lanzar_confeti() 
-                        # st.balloons() # <--- Ya no usamos globos
+                        # === PASO CLAVE: Cambiar el estado a ENVIADO ===
+                        st.session_state.formulario_enviado = True
+                        
+                        # Forzamos una recarga ligera para que el botón se dibuje deshabilitado de inmediato
+                        st.rerun()
                         
                     else:
                         st.error(f"❌ Error devuelto: {resultado_json.get('mensaje')}")
@@ -218,3 +228,18 @@ if st.button("Guardar Registro", type="primary", use_container_width=True):
                     st.error(f"⚠️ Error de servidor HTTP {respuesta.status_code}")
             except Exception as e:
                 st.error(f"🚨 Error crítico de red: {e}")
+
+# =========================================================
+# === VISTA POST-ENVÍO (Muestra recibo y botón de reinicio) ===
+# =========================================================
+if st.session_state.formulario_enviado:
+    st.success("### ✅ ¡La información se registró correctamente!")
+    st.info("El botón de guardado ha sido deshabilitado para evitar duplicados.")
+    
+    # Lanzamos el confeti
+    lanzar_confeti()
+    
+    # Creamos un nuevo botón para "Cargar otro registro" si el operario lo necesita
+    if st.button("🔄 Cargar un nuevo formulario", use_container_width=True):
+        st.session_state.formulario_enviado = False
+        st.rerun()

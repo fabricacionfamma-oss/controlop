@@ -3,7 +3,7 @@ import datetime
 
 st.set_page_config(page_title="Formulario de Planta", layout="centered")
 
-st.title("📋 Registro de Actividades de Planta")
+st.title("📋 Registro de Actividades Delegados")
 st.write("Complete todos los campos obligatorios a continuación.")
 
 st.markdown("---")
@@ -15,7 +15,7 @@ fecha = st.date_input("Fecha *", datetime.date.today())
 planta = st.selectbox("Planta *", ["FAMMA", "FUMISCOR"])
 
 # 3. Líder - Legajo (Validaremos que sean 6 dígitos al guardar)
-legajo = st.text_input("Líder - LEGAJO (6 dígitos) *", max_chars=6, placeholder="Ej: 123456")
+legajo = st.text_input("Líder ( Legajo - 6 dígitos) *", max_chars=6, placeholder="Ej: 123456")
 
 # 4. Área (Dependiendo de la planta elegida, mostramos unas áreas u otras)
 # Definimos las opciones según la imagen
@@ -60,7 +60,7 @@ else:
     otras_tareas = "N/A"
 
 # 8. Tareas según lo solicitado
-tareas_solicitadas = st.selectbox("¿Se realizaron las tareas según lo solicitado? *", ["Sí", "No", "Parcialmente"])
+tareas_solicitadas = st.selectbox("¿Realizo las actividades según lo solicitado? *", ["Sí", "No", "Parcialmente"])
 
 st.markdown("---")
 st.subheader("⏱️ Tiempos y Horarios")

@@ -1,11 +1,16 @@
 import streamlit as st
 import datetime
+import requests  # Librería fundamental para enviar datos por internet
 
 st.set_page_config(page_title="Formulario de Planta", layout="centered")
 
+# =========================================================
+# === URL DEL WEBHOOK DE GOOGLE APPS SCRIPT ===
+# =========================================================
+URL_WEBHOOK_GOOGLE = "https://script.google.com/macros/s/AKfycbxVLrj0W21ezNqh0PXEyfAnMX1VXVttORRexo_P81BbXHobZIvKVxWHa_omeP0mrPsF/exec"
+
 st.title("📋 Registro de Actividades Delegados")
 st.write("Complete todos los campos obligatorios a continuación.")
-
 st.markdown("---")
 
 # 1. Fecha
@@ -18,21 +23,8 @@ planta = st.selectbox("Planta *", ["FAMMA", "FUMISCOR"])
 legajo = st.text_input("Líder ( Legajo - 6 dígitos) *", max_chars=6, placeholder="Ej: 123456")
 
 # 4. Área 
-areas_famma = [
-    "FAMMA - ESTAMPADO - L1", 
-    "FAMMA - ESTAMPADO - L2", 
-    "FAMMA - ESTAMPADO - CELDAS", 
-    "FAMMA - ESTAMPADO - PRP"
-]
-areas_fumiscor = [
-    "FUMISCOR - ESTAMPADO - MECANICAS",
-    "FUMISCOR - ESTAMPADO - HIDRAULICAS",
-    "FUMISCOR - ESTAMPADO - PROGRESIVAS",
-    "FUMISCOR - ESTAMPADO - BALANCINES",
-    "FUMISCOR - SOLDADURA - CELDAS ROBOT",
-    "FUMISCOR - SOLDADURA - PRP",
-    "FUMISCOR - SOLDADURA - CELDAS NUEVAS - NAVE 6"
-]
+areas_famma = ["FAMMA - ESTAMPADO - L1", "FAMMA - ESTAMPADO - L2", "FAMMA - ESTAMPADO - CELDAS", "FAMMA - ESTAMPADO - PRP"]
+areas_fumiscor = ["FUMISCOR - ESTAMPADO - MECANICAS", "FUMISCOR - ESTAMPADO - HIDRAULICAS", "FUMISCOR - ESTAMPADO - PROGRESIVAS", "FUMISCOR - ESTAMPADO - BALANCINES", "FUMISCOR - SOLDADURA - CELDAS ROBOT", "FUMISCOR - SOLDADURA - PRP", "FUMISCOR - SOLDADURA - CELDAS NUEVAS - NAVE 6"]
 
 opciones_area = areas_famma if planta == "FAMMA" else areas_fumiscor
 area = st.selectbox("Área *", opciones_area)
@@ -70,28 +62,24 @@ tareas_solicitadas = st.selectbox("¿Realizo las actividades según lo solicitad
 st.markdown("---")
 st.subheader("⏱️ Tiempos y Horarios")
 
-# === FUNCIÓN OPTIMIZADA PARA MÓVILES ===
+# === FUNCIÓN RESPONSIVA NATIVA ===
 def fila_tiempo_obs(label_tiempo, es_hora=False, prefijo=""):
-    # Título general de la sección
     st.markdown(f"**{label_tiempo} ***") 
     
     if es_hora:
-        # Hora y Minutos lado a lado (2 columnas amplias para los dedos)
         col_h, col_m = st.columns(2)
         with col_h:
             hora = st.number_input("Hora (0-23)", min_value=0, max_value=23, step=1, key=f"{prefijo}_h")
         with col_m:
             minuto = st.number_input("Minutos (0-59)", min_value=0, max_value=59, step=1, key=f"{prefijo}_m")
             
-        # Observaciones abajo, ocupando todo el ancho del celular
         obs = st.text_input("Observaciones", placeholder="Escribe aquí si hay observaciones...", key=f"{prefijo}_obs")
         
         tiempo_final = f"{hora:02d}:{minuto:02d}"
-        st.markdown("<br>", unsafe_allow_html=True) # Espacio extra para separar del siguiente bloque
+        st.markdown("<br>", unsafe_allow_html=True) 
         return tiempo_final, obs
         
     else:
-        # Para tiempos regulares, mantenemos cantidad a la izquierda y observaciones a la derecha
         col_t, col_obs = st.columns(2)
         with col_t:
             tiempo_final = st.number_input("Cantidad (Minutos) *", min_value=0, step=5, key=f"{prefijo}_t")
@@ -115,53 +103,82 @@ st.markdown("---")
 # 14. Observación final
 observacion_general = st.text_area("¿Alguna observación general? *")
 
-# Botón de guardado
+# =========================================================
+# === BOTÓN DE ENVÍO CON SISTEMA ANTI-PÉRDIDA DE DATOS ===
+# =========================================================
 if st.button("Guardar Registro", type="primary", use_container_width=True):
     
     errores = []
-    
     if len(legajo) != 6 or not legajo.isdigit():
         errores.append("El LEGAJO debe contener exactamente 6 números.")
     if not delegado:
         errores.append("Falta ingresar el delegado a cargo.")
     if not observacion_general:
         errores.append("La observación general es obligatoria.")
-        
     if not no_maquina:
-        if not maquina_asignada:
-            errores.append("Debe ingresar la Máquina asignada o marcar que no trabajó en ella.")
-        if not pieza_realizada:
-            errores.append("Debe ingresar la Pieza realizada o marcar que no trabajó en máquina.")
-            
+        if not maquina_asignada: errores.append("Debe ingresar la Máquina asignada.")
+        if not pieza_realizada: errores.append("Debe ingresar la Pieza realizada.")
     if not no_otras_tareas and not otras_tareas:
-        errores.append("Debe especificar las Otras tareas asignadas o marcar que no se le asignaron.")
+        errores.append("Debe especificar las Otras tareas asignadas.")
 
     if errores:
         for error in errores:
             st.error(f"⚠️ {error}")
     else:
-        st.success("✅ Formulario validado correctamente. (Listo para enviar a Google Sheets)")
-        
-        # Estructura de datos final 
-        st.json({
+        # Preparamos el paquete de datos estructurado en formato JSON clásico
+        payload = {
             "Fecha": str(fecha),
             "Planta": planta,
             "Legajo": legajo,
             "Area": area,
             "Delegado": delegado,
-            "Maquina Asignada": maquina_asignada,
-            "Pieza Realizada": pieza_realizada,
-            "Otras Tareas": otras_tareas,
-            "Tareas Solicitadas": tareas_solicitadas,
-            "Hora Inicio": hr_inicio,
-            "Obs Inicio": obs_inicio,
-            "Hora Fin": hr_fin,
-            "Obs Fin": obs_fin,
-            "Minutos Baño": t_bano,
-            "Obs Baño": obs_bano,
-            "Minutos Refrigerio": t_refrigerio,
-            "Obs Refrigerio": obs_refrigerio,
-            "Minutos Gremiales": t_gremiales,
-            "Obs Gremiales": obs_gremiales,
-            "Observacion General": observacion_general
-        })
+            "MaquinaAsignada": maquina_asignada,
+            "PiezaRealizada": pieza_realizada,
+            "OtrasTareas": otras_tareas,
+            "TareasSolicitadas": tareas_solicitadas,
+            "HoraInicio": hr_inicio,
+            "ObsInicio": obs_inicio,
+            "HoraFin": hr_fin,
+            "ObsFin": obs_fin,
+            "MinutosBano": t_bano,
+            "ObsBano": obs_bano,
+            "MinutosRefrigerio": t_refrigerio,
+            "ObsRefrigerio": obs_refrigerio,
+            "MinutosGremiales": t_gremiales,
+            "ObsGremiales": obs_gremiales,
+            "ObservacionGeneral": observacion_general
+        }
+        
+        with st.spinner("Procesando en Google Sheets... No cierre esta pestaña."):
+            try:
+                # Se envían los datos mediante POST y se esperan un máximo de 15 segundos
+                respuesta = requests.post(URL_WEBHOOK_GOOGLE, json=payload, timeout=15)
+                
+                # Comprobar que la comunicación web fue exitosa (Código HTTP 200)
+                if respuesta.status_code == 200:
+                    resultado_json = respuesta.json()
+                    
+                    if resultado_json.get("status") == "exito":
+                        # === RECIBO OFICIAL PARA EL USUARIO ===
+                        num_fila = resultado_json.get("fila")
+                        
+                        st.success(f"""
+                        ### ✅ ¡Se registró correctamente la información!
+                        * **Estado:** Guardado exitoso en la nube.
+                        * **Comprobante N°:** REC-{fecha.strftime('%Y%m%d')}-{legajo}-{num_fila}
+                        * **Fila de registro:** {num_fila}
+                        
+                        Ya puede cerrar esta pestaña de forma segura.
+                        """)
+                        st.balloons()
+                    else:
+                        # Error lógico devuelto desde Google Apps Script
+                        st.error(f"❌ Google Sheets rechazó el guardado: {resultado_json.get('mensaje')}")
+                else:
+                    st.error(f"⚠️ El servidor de Google respondió con código de error {respuesta.status_code}. Intente de nuevo.")
+                    
+            except requests.exceptions.Timeout:
+                st.error("⏳ Tiempo de espera agotado. La conexión de red es muy lenta, verifique si los datos impactaron antes de reintentar.")
+            except Exception as e:
+                # Error crítico de conexión de red o URL mal pegada
+                st.error(f"🚨 Error crítico de red: No se pudo enviar la información. Verifique su señal de internet. Detalles: {e}")

@@ -69,15 +69,15 @@ tareas_solicitadas = st.selectbox("¿Realizo las actividades según lo solicitad
 st.markdown("---")
 st.subheader("⏱️ Tiempos y Horarios")
 
-# === FUNCIÓN RESPONSIVA ACTUALIZADA ===
+# === FUNCIÓN RESPONSIVA USANDO ST.TIME_INPUT NATIVO ===
 def fila_tiempo_obs(label_tiempo, es_hora=False, prefijo="", unidad="Minutos"):
     st.markdown(f"**{label_tiempo} ***") 
     
     if es_hora:
-        # === AHORA ES UN SOLO RECUADRO DE TEXTO ===
         col_t, col_obs = st.columns(2)
         with col_t:
-            tiempo_final = st.text_input("Hora (HH:MM) *", placeholder="Ej: 06:30 o 14:45", max_chars=5, key=f"{prefijo}_t")
+            # value=None hace que empiece vacío para evitar envíos por accidente
+            tiempo_final = st.time_input("Hora *", value=None, key=f"{prefijo}_t")
         with col_obs:
             obs = st.text_input("Observaciones", placeholder="Escribe aquí si hay observaciones...", key=f"{prefijo}_obs")
             
@@ -112,18 +112,6 @@ st.markdown("---")
 observacion_general = st.text_area("¿Alguna observación general? *")
 
 # =========================================================
-# === FUNCIONES DE VALIDACIÓN DE HORA ===
-# =========================================================
-def validar_formato_hora(texto_hora):
-    """Intenta convertir el texto a formato de hora para ver si es válido."""
-    try:
-        # Esto asegura que sea HH:MM válido (ej: rechaza 25:00 o 08:99)
-        hora_valida = datetime.datetime.strptime(texto_hora.strip(), "%H:%M")
-        return True, hora_valida.strftime("%H:%M")
-    except ValueError:
-        return False, ""
-
-# =========================================================
 # === GESTIÓN DE BOTONES CON BLOQUEO DE SEGURIDAD ===
 # =========================================================
 
@@ -136,7 +124,8 @@ boton_guardar = st.button(
 
 if boton_guardar:
     errores = []
-    # Validación básica
+    
+    # Validaciones generales
     if len(legajo) != 6 or not legajo.isdigit():
         errores.append("El LEGAJO debe contener exactamente 6 números.")
     if not delegado:
@@ -149,19 +138,20 @@ if boton_guardar:
     if not no_otras_tareas and not otras_tareas:
         errores.append("Debe especificar las Otras tareas asignadas.")
 
-    # Validación estricta de las Horas
-    es_inicio_valido, inicio_formateado = validar_formato_hora(hr_inicio)
-    if not es_inicio_valido:
-        errores.append("El 'Horario inicio de actividades' no es válido. Use formato HH:MM (ej. 06:30).")
-        
-    es_fin_valido, fin_formateado = validar_formato_hora(hr_fin)
-    if not es_fin_valido:
-        errores.append("El 'Horario fin de actividades' no es válido. Use formato HH:MM (ej. 14:45).")
+    # Validar que los campos de hora nativos no estén vacíos
+    if hr_inicio is None:
+        errores.append("Falta ingresar el 'Horario inicio de actividades'.")
+    if hr_fin is None:
+        errores.append("Falta ingresar el 'Horario fin de actividades'.")
 
     if errores:
         for error in errores:
             st.error(f"⚠️ {error}")
     else:
+        # Extraemos el formato de hora "HH:MM" de los objetos de tiempo nativos
+        inicio_formateado = hr_inicio.strftime("%H:%M")
+        fin_formateado = hr_fin.strftime("%H:%M")
+
         payload = {
             "Fecha": str(fecha),
             "Planta": planta,
@@ -172,9 +162,9 @@ if boton_guardar:
             "PiezaRealizada": pieza_realizada,
             "OtrasTareas": otras_tareas,
             "TareasSolicitadas": tareas_solicitadas,
-            "HoraInicio": inicio_formateado, # Se envía la hora ya validada y limpia
+            "HoraInicio": inicio_formateado,
             "ObsInicio": obs_inicio,
-            "HoraFin": fin_formateado,       # Se envía la hora ya validada y limpia
+            "HoraFin": fin_formateado,
             "ObsFin": obs_fin,
             "MinutosBano": t_bano,
             "ObsBano": obs_bano,

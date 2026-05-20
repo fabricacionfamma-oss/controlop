@@ -16,6 +16,38 @@ if "formulario_enviado" not in st.session_state:
 # =========================================================
 URL_WEBHOOK_GOOGLE = "https://script.google.com/macros/s/AKfycbxVLrj0W21ezNqh0PXEyfAnMX1VXVttORRexo_P81BbXHobZIvKVxWHa_omeP0mrPsF/exec"
 
+# =========================================================
+# === FUNCIONES DE VALIDACIÓN DE HORA (CARGA RÁPIDA) ===
+# =========================================================
+def validar_formato_hora(texto_hora):
+    if not texto_hora:
+        return False, ""
+        
+    # Quitamos espacios y los ':' por si el usuario sí los puso
+    texto = str(texto_hora).strip().replace(":", "")
+    
+    # Verificamos que sean 3 o 4 números de corrido (Ej: '630' o '1430')
+    if texto.isdigit() and (len(texto) == 3 or len(texto) == 4):
+        # Si puso 3 números (ej. 630), le agregamos un 0 adelante -> 0630
+        if len(texto) == 3:
+            texto = "0" + texto
+            
+        # Armamos la hora insertando los ':' en el medio
+        hora_str = f"{texto[:2]}:{texto[2:]}"
+        
+        try:
+            # Validamos que no pongan horas irreales (ej. 25:99)
+            hora_valida = datetime.datetime.strptime(hora_str, "%H:%M")
+            return True, hora_valida.strftime("%H:%M")
+        except ValueError:
+            return False, ""
+            
+    return False, ""
+
+# =========================================================
+# === INTERFAZ DEL FORMULARIO ===
+# =========================================================
+
 st.title("📋 Registro de Actividades Delegados")
 st.write("Complete todos los campos obligatorios a continuación.")
 st.markdown("---")
@@ -69,17 +101,16 @@ tareas_solicitadas = st.selectbox("¿Realizo las actividades según lo solicitad
 st.markdown("---")
 st.subheader("⏱️ Tiempos y Horarios")
 
-# === FUNCIÓN RESPONSIVA USANDO ST.TIME_INPUT NATIVO ===
+# === FUNCIÓN RESPONSIVA (CARGA RÁPIDA) ===
 def fila_tiempo_obs(label_tiempo, es_hora=False, prefijo="", unidad="Minutos"):
     st.markdown(f"**{label_tiempo} ***") 
     
     if es_hora:
         col_t, col_obs = st.columns(2)
         with col_t:
-            # value=None hace que empiece vacío para evitar envíos por accidente
-            tiempo_final = st.time_input("Hora *", value=None, key=f"{prefijo}_t")
+            tiempo_final = st.text_input("Hora (Ej: 1430) *", placeholder="Ej: 0630", max_chars=5, key=f"{prefijo}_t")
         with col_obs:
-            obs = st.text_input("Observaciones", placeholder="Escribe aquí si hay observaciones...", key=f"{prefijo}_obs")
+            obs = st.text_input("Observaciones", placeholder="Escribe aquí...", key=f"{prefijo}_obs")
             
         st.markdown("<br>", unsafe_allow_html=True) 
         return tiempo_final, obs
@@ -138,20 +169,20 @@ if boton_guardar:
     if not no_otras_tareas and not otras_tareas:
         errores.append("Debe especificar las Otras tareas asignadas.")
 
-    # Validar que los campos de hora nativos no estén vacíos
-    if hr_inicio is None:
-        errores.append("Falta ingresar el 'Horario inicio de actividades'.")
-    if hr_fin is None:
-        errores.append("Falta ingresar el 'Horario fin de actividades'.")
+    # Validación estricta de las Horas (Carga rápida)
+    es_inicio_valido, inicio_formateado = validar_formato_hora(hr_inicio)
+    if not es_inicio_valido:
+        errores.append("Horario de inicio inválido. Escriba los números de corrido, ej: 0630 o 1445.")
+        
+    es_fin_valido, fin_formateado = validar_formato_hora(hr_fin)
+    if not es_fin_valido:
+        errores.append("Horario de fin inválido. Escriba los números de corrido, ej: 0630 o 1445.")
 
     if errores:
         for error in errores:
             st.error(f"⚠️ {error}")
     else:
-        # Extraemos el formato de hora "HH:MM" de los objetos de tiempo nativos
-        inicio_formateado = hr_inicio.strftime("%H:%M")
-        fin_formateado = hr_fin.strftime("%H:%M")
-
+        # Preparamos el payload usando las horas ya formateadas y validadas
         payload = {
             "Fecha": str(fecha),
             "Planta": planta,

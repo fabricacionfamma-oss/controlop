@@ -17,9 +17,22 @@ planta = st.selectbox("Planta *", ["FAMMA", "FUMISCOR"])
 # 3. Líder - Legajo
 legajo = st.text_input("Líder ( Legajo - 6 dígitos) *", max_chars=6, placeholder="Ej: 123456")
 
-# 4. Área (Listas dinámicas)
-areas_famma = ["FAMMA - ESTAMPADO - L1", "FAMMA - ESTAMPADO - L2", "FAMMA - ESTAMPADO - CELDAS", "FAMMA - ESTAMPADO - PRP"]
-areas_fumiscor = ["FUMISCOR - ESTAMPADO - MECANICAS", "FUMISCOR - ESTAMPADO - HIDRAULICAS", "FUMISCOR - ESTAMPADO - PROGRESIVAS", "FUMISCOR - ESTAMPADO - BALANCINES", "FUMISCOR - SOLDADURA - CELDAS ROBOT", "FUMISCOR - SOLDADURA - PRP", "FUMISCOR - SOLDADURA - CELDAS NUEVAS - NAVE 6"]
+# 4. Área 
+areas_famma = [
+    "FAMMA - ESTAMPADO - L1", 
+    "FAMMA - ESTAMPADO - L2", 
+    "FAMMA - ESTAMPADO - CELDAS", 
+    "FAMMA - ESTAMPADO - PRP"
+]
+areas_fumiscor = [
+    "FUMISCOR - ESTAMPADO - MECANICAS",
+    "FUMISCOR - ESTAMPADO - HIDRAULICAS",
+    "FUMISCOR - ESTAMPADO - PROGRESIVAS",
+    "FUMISCOR - ESTAMPADO - BALANCINES",
+    "FUMISCOR - SOLDADURA - CELDAS ROBOT",
+    "FUMISCOR - SOLDADURA - PRP",
+    "FUMISCOR - SOLDADURA - CELDAS NUEVAS - NAVE 6"
+]
 
 opciones_area = areas_famma if planta == "FAMMA" else areas_fumiscor
 area = st.selectbox("Área *", opciones_area)
@@ -32,6 +45,7 @@ st.subheader("⚙️ Tareas y Maquinaria")
 
 # 6. Máquina asignada y Pieza realizada
 no_maquina = st.checkbox("No trabajó en máquina, hizo otras tareas!")
+
 if not no_maquina:
     col_m1, col_m2 = st.columns(2)
     with col_m1:
@@ -56,49 +70,28 @@ tareas_solicitadas = st.selectbox("¿Realizo las actividades según lo solicitad
 st.markdown("---")
 st.subheader("⏱️ Tiempos y Horarios")
 
-# =========================================================
-# === FUNCIÓN MODIFICADA CON CSS PARA FORZAR COLUMNAS ===
-# =========================================================
-def fila_tiempo_obs_forzada_movil(label_tiempo, es_hora=False, prefijo=""):
+# === FUNCIÓN OPTIMIZADA PARA MÓVILES ===
+def fila_tiempo_obs(label_tiempo, es_hora=False, prefijo=""):
+    # Título general de la sección
     st.markdown(f"**{label_tiempo} ***") 
     
     if es_hora:
-        # === ESTO ES EL TRUCO DE CSS ===
-        # Targeteamos la estructura interna de columnas de Streamlit
-        # data-testid="stHorizontalBlock" es el contenedor de filas
-        # data-testid="column" son las columnas individuales
-        st.markdown("""
-            <style>
-                /* Evita que las filas de columnas se apilen (wrap) */
-                [data-testid="stHorizontalBlock"] {
-                    flex-wrap: nowrap !important; /* NO STACKING */
-                }
-                /* Fuerza el ancho de las columnas internas */
-                [data-testid="column"] {
-                    min-width: unset !important; /* Permite ancho menor al por defecto */
-                    width: 50% !important;     /* Fuerza 50% exacta */
-                    flex: 1 1 auto !important;
-                }
-            </style>
-        """, unsafe_allow_html=True)
-        # ===============================
-
+        # Hora y Minutos lado a lado (2 columnas amplias para los dedos)
         col_h, col_m = st.columns(2)
         with col_h:
             hora = st.number_input("Hora (0-23)", min_value=0, max_value=23, step=1, key=f"{prefijo}_h")
         with col_m:
             minuto = st.number_input("Minutos (0-59)", min_value=0, max_value=59, step=1, key=f"{prefijo}_m")
             
-        # Observaciones abajo (normal, ocupa todo el ancho)
-        obs = st.text_input("Observaciones", placeholder="Opcional...", key=f"{prefijo}_obs")
+        # Observaciones abajo, ocupando todo el ancho del celular
+        obs = st.text_input("Observaciones", placeholder="Escribe aquí si hay observaciones...", key=f"{prefijo}_obs")
         
         tiempo_final = f"{hora:02d}:{minuto:02d}"
-        st.markdown("<br>", unsafe_allow_html=True) 
+        st.markdown("<br>", unsafe_allow_html=True) # Espacio extra para separar del siguiente bloque
         return tiempo_final, obs
         
     else:
         # Para tiempos regulares, mantenemos cantidad a la izquierda y observaciones a la derecha
-        # (Este CSS también afectará a estas columnas si las usas)
         col_t, col_obs = st.columns(2)
         with col_t:
             tiempo_final = st.number_input("Cantidad (Minutos) *", min_value=0, step=5, key=f"{prefijo}_t")
@@ -108,14 +101,14 @@ def fila_tiempo_obs_forzada_movil(label_tiempo, es_hora=False, prefijo=""):
         st.markdown("<br>", unsafe_allow_html=True)
         return tiempo_final, obs
 
-# Usar la nueva función forzada para Hora de Inicio y Hora de Fin
-hr_inicio, obs_inicio = fila_tiempo_obs_forzada_movil("Horario inicio de actividades", es_hora=True, prefijo="inicio")
-hr_fin, obs_fin = fila_tiempo_obs_forzada_movil("Horario fin de actividades", es_hora=True, prefijo="fin")
+# 9 y 10. Horarios de inicio y fin
+hr_inicio, obs_inicio = fila_tiempo_obs("Horario inicio de actividades", es_hora=True, prefijo="inicio")
+hr_fin, obs_fin = fila_tiempo_obs("Horario fin de actividades", es_hora=True, prefijo="fin")
 
-# Usar la función original para los tiempos en minutos (opcionalmente)
-t_bano, obs_bano = fila_tiempo_obs_forzada_movil("Tiempos de baño", es_hora=False, prefijo="bano")
-t_refrigerio, obs_refrigerio = fila_tiempo_obs_forzada_movil("Tiempos de refrigerio", es_hora=False, prefijo="refrig")
-t_gremiales, obs_gremiales = fila_tiempo_obs_forzada_movil("Actividades gremiales realizadas", es_hora=False, prefijo="gremial")
+# 11, 12 y 13. Tiempos en minutos
+t_bano, obs_bano = fila_tiempo_obs("Tiempos de baño", es_hora=False, prefijo="bano")
+t_refrigerio, obs_refrigerio = fila_tiempo_obs("Tiempos de refrigerio", es_hora=False, prefijo="refrig")
+t_gremiales, obs_gremiales = fila_tiempo_obs("Actividades gremiales realizadas", es_hora=False, prefijo="gremial")
 
 st.markdown("---")
 
@@ -161,9 +154,14 @@ if st.button("Guardar Registro", type="primary", use_container_width=True):
             "Otras Tareas": otras_tareas,
             "Tareas Solicitadas": tareas_solicitadas,
             "Hora Inicio": hr_inicio,
+            "Obs Inicio": obs_inicio,
             "Hora Fin": hr_fin,
+            "Obs Fin": obs_fin,
             "Minutos Baño": t_bano,
+            "Obs Baño": obs_bano,
             "Minutos Refrigerio": t_refrigerio,
+            "Obs Refrigerio": obs_refrigerio,
             "Minutos Gremiales": t_gremiales,
+            "Obs Gremiales": obs_gremiales,
             "Observacion General": observacion_general
         })

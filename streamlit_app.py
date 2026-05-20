@@ -1,7 +1,6 @@
 import streamlit as st
 import datetime
 
-# Mantener la configuración que elegiste
 st.set_page_config(page_title="Formulario de Planta", layout="centered")
 
 st.title("📋 Registro de Actividades Delegados")
@@ -18,7 +17,7 @@ planta = st.selectbox("Planta *", ["FAMMA", "FUMISCOR"])
 # 3. Líder - Legajo
 legajo = st.text_input("Líder ( Legajo - 6 dígitos) *", max_chars=6, placeholder="Ej: 123456")
 
-# 4. Área (Listas según tu definición)
+# 4. Área 
 areas_famma = [
     "FAMMA - ESTAMPADO - L1", 
     "FAMMA - ESTAMPADO - L2", 
@@ -35,7 +34,6 @@ areas_fumiscor = [
     "FUMISCOR - SOLDADURA - CELDAS NUEVAS - NAVE 6"
 ]
 
-# Lógica dinámica para el Área
 opciones_area = areas_famma if planta == "FAMMA" else areas_fumiscor
 area = st.selectbox("Área *", opciones_area)
 
@@ -45,18 +43,16 @@ delegado = st.text_input("Delegado a cargo *")
 st.markdown("---")
 st.subheader("⚙️ Tareas y Maquinaria")
 
-# 6. LÓGICA REACTIVA: Máquina asignada y Pieza realizada
+# 6. Máquina asignada y Pieza realizada
 no_maquina = st.checkbox("No trabajó en máquina, hizo otras tareas!")
 
 if not no_maquina:
-    # Si NO está marcado el botón, se muestran ambas opciones en dos columnas independientes
     col_m1, col_m2 = st.columns(2)
     with col_m1:
         maquina_asignada = st.text_input("Máquina asignada *", placeholder="Ej: Prensa 05")
     with col_m2:
         pieza_realizada = st.text_input("Pieza realizada *", placeholder="Ej: Longeron")
 else:
-    # Si se marca el botón, ambas opciones desaparecen de la vista y toman valor "N/A" automáticamente
     maquina_asignada = "N/A"
     pieza_realizada = "N/A"
     st.info("ℹ️ Se registrará 'N/A' en máquina y pieza realizada al no trabajar en máquina.")
@@ -74,36 +70,53 @@ tareas_solicitadas = st.selectbox("¿Realizo las actividades según lo solicitad
 st.markdown("---")
 st.subheader("⏱️ Tiempos y Horarios")
 
-# Función para crear filas de tiempos + observaciones fácilmente
-def fila_tiempo_obs(label_tiempo, es_hora=False):
-    col1, col2 = st.columns([1, 2])
-    with col1:
-        if es_hora:
-            tiempo = st.time_input(f"{label_tiempo} *")
-        else:
-            tiempo = st.number_input(f"{label_tiempo} (Minutos) *", min_value=0, step=5)
-    with col2:
-        obs = st.text_input(f"Observaciones ({label_tiempo.lower()})", placeholder="Escribe aquí si hay observaciones...")
-    return tiempo, obs
+# Función modificada para admitir Horas y Minutos por separado
+def fila_tiempo_obs(label_tiempo, es_hora=False, prefijo=""):
+    if es_hora:
+        # Colocamos el título arriba de la fila para que se entienda
+        st.markdown(f"**{label_tiempo} ***")
+        col_h, col_m, col_obs = st.columns([1, 1, 2])
+        
+        with col_h:
+            # Cuadro de horas: 0 a 23
+            hora = st.number_input("Hora", min_value=0, max_value=23, step=1, key=f"{prefijo}_h")
+        with col_m:
+            # Cuadro de minutos: 0 a 59
+            minuto = st.number_input("Minutos", min_value=0, max_value=59, step=1, key=f"{prefijo}_m")
+        with col_obs:
+            obs = st.text_input("Observaciones", placeholder="Escribe aquí si hay observaciones...", key=f"{prefijo}_obs")
+            
+        # Formateamos a texto "HH:MM", añadiendo ceros a la izquierda (ej: 09:05)
+        tiempo_final = f"{hora:02d}:{minuto:02d}"
+        return tiempo_final, obs
+        
+    else:
+        col1, col2 = st.columns([1, 2])
+        with col1:
+            tiempo_final = st.number_input(f"{label_tiempo} (Minutos) *", min_value=0, step=5, key=f"{prefijo}_t")
+        with col2:
+            obs = st.text_input(f"Observaciones ({label_tiempo.lower()})", placeholder="Escribe aquí si hay observaciones...", key=f"{prefijo}_obs")
+        return tiempo_final, obs
 
-# 9 y 10. Horarios de inicio y fin
-hr_inicio, obs_inicio = fila_tiempo_obs("Horario inicio de actividades", es_hora=True)
-hr_fin, obs_fin = fila_tiempo_obs("Horario fin de actividades", es_hora=True)
+# 9 y 10. Horarios de inicio y fin (usando es_hora=True y un prefijo único)
+hr_inicio, obs_inicio = fila_tiempo_obs("Horario inicio de actividades", es_hora=True, prefijo="inicio")
+hr_fin, obs_fin = fila_tiempo_obs("Horario fin de actividades", es_hora=True, prefijo="fin")
+
+st.write("") # Espacio en blanco para separar
 
 # 11, 12 y 13. Tiempos en minutos
-t_bano, obs_bano = fila_tiempo_obs("Tiempos de baño")
-t_refrigerio, obs_refrigerio = fila_tiempo_obs("Tiempos de refrigerio")
-t_gremiales, obs_gremiales = fila_tiempo_obs("Actividades gremiales realizadas")
+t_bano, obs_bano = fila_tiempo_obs("Tiempos de baño", es_hora=False, prefijo="bano")
+t_refrigerio, obs_refrigerio = fila_tiempo_obs("Tiempos de refrigerio", es_hora=False, prefijo="refrig")
+t_gremiales, obs_gremiales = fila_tiempo_obs("Actividades gremiales realizadas", es_hora=False, prefijo="gremial")
 
 st.markdown("---")
 
 # 14. Observación final
 observacion_general = st.text_area("¿Alguna observación general? *")
 
-# Botón de guardado con validaciones actualizadas
+# Botón de guardado con validaciones
 if st.button("Guardar Registro", type="primary", use_container_width=True):
     
-    # Lista para ir acumulando los errores de validación
     errores = []
     
     if len(legajo) != 6 or not legajo.isdigit():
@@ -113,7 +126,6 @@ if st.button("Guardar Registro", type="primary", use_container_width=True):
     if not observacion_general:
         errores.append("La observación general es obligatoria.")
         
-    # Validación condicional para la máquina y pieza (solo si NO marcó el checkbox)
     if not no_maquina:
         if not maquina_asignada:
             errores.append("Debe ingresar la Máquina asignada o marcar que no trabajó en ella.")
@@ -123,14 +135,13 @@ if st.button("Guardar Registro", type="primary", use_container_width=True):
     if not no_otras_tareas and not otras_tareas:
         errores.append("Debe especificar las Otras tareas asignadas o marcar que no se le asignaron.")
 
-    # Desplegar resultado de la validación
     if errores:
         for error in errores:
             st.error(f"⚠️ {error}")
     else:
         st.success("✅ Formulario validado correctamente. (Listo para enviar a Google Sheets)")
         
-        # Muestra temporal de estructura de datos final para verificar que todo se guarde bien
+        # Estructura de datos final 
         st.json({
             "Fecha": str(fecha),
             "Planta": planta,
@@ -141,10 +152,15 @@ if st.button("Guardar Registro", type="primary", use_container_width=True):
             "Pieza Realizada": pieza_realizada,
             "Otras Tareas": otras_tareas,
             "Tareas Solicitadas": tareas_solicitadas,
-            "Hora Inicio": str(hr_inicio),
-            "Hora Fin": str(hr_fin),
+            "Hora Inicio": hr_inicio,
+            "Obs Inicio": obs_inicio,
+            "Hora Fin": hr_fin,
+            "Obs Fin": obs_fin,
             "Minutos Baño": t_bano,
+            "Obs Baño": obs_bano,
             "Minutos Refrigerio": t_refrigerio,
+            "Obs Refrigerio": obs_refrigerio,
             "Minutos Gremiales": t_gremiales,
+            "Obs Gremiales": obs_gremiales,
             "Observacion General": observacion_general
         })

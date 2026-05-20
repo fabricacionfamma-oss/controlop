@@ -1,11 +1,54 @@
 import streamlit as st
 import datetime
-import requests  # Librería fundamental para enviar datos por internet
+import requests
+import streamlit.components.v1 as components # Para el efecto de confeti personalizado
 
+# 1. Configuración de la página
 st.set_page_config(page_title="Formulario de Planta", layout="centered")
 
 # =========================================================
-# === URL DEL WEBHOOK DE GOOGLE APPS SCRIPT ===
+# === FUNCIÓN DEL EFECTO DE CONFETI PERSONALIZADO ===
+# =========================================================
+def lanzar_confeti():
+    components.html(
+        """
+        <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.5.1/dist/confetti.browser.min.js"></script>
+        <script>
+            // Configuración del confeti: duración de 2.5 segundos, explosión de colores
+            var end = Date.now() + (2.5 * 1000); 
+            var colors = ['#ff0000', '#00ff00', '#0000ff', '#ffff00', '#ff00ff', '#00ffff'];
+
+            (function frame() {
+                // Explosión desde la izquierda
+                confetti({
+                    particleCount: 4,
+                    angle: 60,
+                    spread: 60,
+                    origin: { x: 0 },
+                    colors: colors
+                });
+                // Explosión desde la derecha
+                confetti({
+                    particleCount: 4,
+                    angle: 120,
+                    spread: 60,
+                    origin: { x: 1 },
+                    colors: colors
+                });
+
+                if (Date.now() < end) {
+                    requestAnimationFrame(frame);
+                }
+            }());
+        </script>
+        """,
+        height=0, # Ocultar el contenedor del componente
+    )
+
+# === YA NO SE LLAMA A LANZAR_CONFETI() AQUÍ AL INICIO ===
+
+# =========================================================
+# === CONFIGURACIÓN DE URL ===
 # =========================================================
 URL_WEBHOOK_GOOGLE = "https://script.google.com/macros/s/AKfycbxVLrj0W21ezNqh0PXEyfAnMX1VXVttORRexo_P81BbXHobZIvKVxWHa_omeP0mrPsF/exec"
 
@@ -62,8 +105,8 @@ tareas_solicitadas = st.selectbox("¿Realizo las actividades según lo solicitad
 st.markdown("---")
 st.subheader("⏱️ Tiempos y Horarios")
 
-# === FUNCIÓN RESPONSIVA NATIVA ===
-def fila_tiempo_obs(label_tiempo, es_hora=False, prefijo=""):
+# === FUNCIÓN RESPONSIVA ===
+def fila_tiempo_obs(label_tiempo, es_hora=False, prefijo="", unidad="Minutos"):
     st.markdown(f"**{label_tiempo} ***") 
     
     if es_hora:
@@ -82,7 +125,10 @@ def fila_tiempo_obs(label_tiempo, es_hora=False, prefijo=""):
     else:
         col_t, col_obs = st.columns(2)
         with col_t:
-            tiempo_final = st.number_input("Cantidad (Minutos) *", min_value=0, step=5, key=f"{prefijo}_t")
+            if unidad == "Horas":
+                tiempo_final = st.number_input("Cantidad (Horas) *", min_value=0.0, step=0.5, format="%.1f", key=f"{prefijo}_t")
+            else:
+                tiempo_final = st.number_input("Cantidad (Minutos) *", min_value=0, step=5, key=f"{prefijo}_t")
         with col_obs:
             obs = st.text_input("Observaciones", placeholder="Opcional...", key=f"{prefijo}_obs")
             
@@ -93,10 +139,10 @@ def fila_tiempo_obs(label_tiempo, es_hora=False, prefijo=""):
 hr_inicio, obs_inicio = fila_tiempo_obs("Horario inicio de actividades", es_hora=True, prefijo="inicio")
 hr_fin, obs_fin = fila_tiempo_obs("Horario fin de actividades", es_hora=True, prefijo="fin")
 
-# 11, 12 y 13. Tiempos en minutos
-t_bano, obs_bano = fila_tiempo_obs("Tiempos de baño", es_hora=False, prefijo="bano")
-t_refrigerio, obs_refrigerio = fila_tiempo_obs("Tiempos de refrigerio", es_hora=False, prefijo="refrig")
-t_gremiales, obs_gremiales = fila_tiempo_obs("Actividades gremiales realizadas", es_hora=False, prefijo="gremial")
+# 11, 12 y 13. Tiempos en minutos y horas
+t_bano, obs_bano = fila_tiempo_obs("Tiempos de baño", es_hora=False, prefijo="bano", unidad="Minutos")
+t_refrigerio, obs_refrigerio = fila_tiempo_obs("Tiempos de refrigerio", es_hora=False, prefijo="refrig", unidad="Minutos")
+h_gremiales, obs_gremiales = fila_tiempo_obs("Actividades gremiales realizadas", es_hora=False, prefijo="gremial", unidad="Horas")
 
 st.markdown("---")
 
@@ -104,7 +150,7 @@ st.markdown("---")
 observacion_general = st.text_area("¿Alguna observación general? *")
 
 # =========================================================
-# === BOTÓN DE ENVÍO CON SISTEMA ANTI-PÉRDIDA DE DATOS ===
+# === BOTÓN DE ENVÍO ===
 # =========================================================
 if st.button("Guardar Registro", type="primary", use_container_width=True):
     
@@ -125,7 +171,7 @@ if st.button("Guardar Registro", type="primary", use_container_width=True):
         for error in errores:
             st.error(f"⚠️ {error}")
     else:
-        # Preparamos el paquete de datos estructurado en formato JSON clásico
+        # Preparamos paquete de datos Clásico
         payload = {
             "Fecha": str(fecha),
             "Planta": planta,
@@ -144,41 +190,31 @@ if st.button("Guardar Registro", type="primary", use_container_width=True):
             "ObsBano": obs_bano,
             "MinutosRefrigerio": t_refrigerio,
             "ObsRefrigerio": obs_refrigerio,
-            "MinutosGremiales": t_gremiales,
+            "HorasGremiales": h_gremiales,
             "ObsGremiales": obs_gremiales,
             "ObservacionGeneral": observacion_general
         }
         
-        with st.spinner("Procesando en Google Sheets... No cierre esta pestaña."):
+        with st.spinner("Procesando en Google Sheets..."):
             try:
-                # Se envían los datos mediante POST y se esperan un máximo de 15 segundos
+                # Envío Clásico POST
                 respuesta = requests.post(URL_WEBHOOK_GOOGLE, json=payload, timeout=15)
                 
-                # Comprobar que la comunicación web fue exitosa (Código HTTP 200)
                 if respuesta.status_code == 200:
                     resultado_json = respuesta.json()
-                    
                     if resultado_json.get("status") == "exito":
-                        # === RECIBO OFICIAL PARA EL USUARIO ===
-                        num_fila = resultado_json.get("fila")
+                        st.success(f"### ✅ ¡Registro guardado exitosamente!")
+                        st.info(f"Comprobante Fila: {resultado_json.get('fila')}")
                         
-                        st.success(f"""
-                        ### ✅ ¡Se registró correctamente la información!
-                        * **Estado:** Guardado exitoso en la nube.
-                        * **Comprobante N°:** REC-{fecha.strftime('%Y%m%d')}-{legajo}-{num_fila}
-                        * **Fila de registro:** {num_fila}
+                        # =========================================================
+                        # === AQUÍ SE LANZA EL CONFETI SOLO EN ÉXITO ===
+                        # =========================================================
+                        lanzar_confeti() 
+                        # st.balloons() # <--- Ya no usamos globos
                         
-                        Ya puede cerrar esta pestaña de forma segura.
-                        """)
-                        st.balloons()
                     else:
-                        # Error lógico devuelto desde Google Apps Script
-                        st.error(f"❌ Google Sheets rechazó el guardado: {resultado_json.get('mensaje')}")
+                        st.error(f"❌ Error devuelto: {resultado_json.get('mensaje')}")
                 else:
-                    st.error(f"⚠️ El servidor de Google respondió con código de error {respuesta.status_code}. Intente de nuevo.")
-                    
-            except requests.exceptions.Timeout:
-                st.error("⏳ Tiempo de espera agotado. La conexión de red es muy lenta, verifique si los datos impactaron antes de reintentar.")
+                    st.error(f"⚠️ Error de servidor HTTP {respuesta.status_code}")
             except Exception as e:
-                # Error crítico de conexión de red o URL mal pegada
-                st.error(f"🚨 Error crítico de red: No se pudo enviar la información. Verifique su señal de internet. Detalles: {e}")
+                st.error(f"🚨 Error crítico de red: {e}")

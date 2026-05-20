@@ -147,7 +147,6 @@ elif st.session_state.mostrar_previsualizacion:
                 "MaquinaAsignada": st.session_state.raw_maquina_asignada,
                 "PiezaRealizada": st.session_state.raw_pieza_realizada,
                 "OtrasTareas": st.session_state.raw_otras_tareas,
-                "Postal": st.session_state.raw_tareas_solicitadas, # Mapeado según script
                 "TareasSolicitadas": st.session_state.raw_tareas_solicitadas,
                 "HoraInicio": inicio_formateado,
                 "ObsInicio": st.session_state.raw_obs_inicio,
@@ -274,7 +273,7 @@ else:
             for error in errores:
                 st.error(f"⚠️ {error}")
         else:
-            # GUARDADO EN MEMORIA TEMPORAL: Guardamos las variables vigentes en session_state
+            # GUARDADO EN MEMORIA TEMPORAL
             st.session_state.raw_fecha = fecha
             st.session_state.raw_planta = planta
             st.session_state.raw_legajo = legajo
